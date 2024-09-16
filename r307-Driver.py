@@ -1,5 +1,6 @@
 from pyfingerprint.pyfingerprint import PyFingerprint
-import serial
+import sys
+import serial.tools.list_ports
 
 class FingerprintSensor:
     def __init__(self, port='COM6', baud_rate=57600, address=0xFFFFFFFF, password=0x00000000):
@@ -21,20 +22,15 @@ class FingerprintSensor:
     def close(self):
         if self.f is not None:
             try:
-                self.f._serial.close()
-                print("Connection closed")
+                self.f = None
+                # print("Connection closed")
             except Exception as e:
                 print(f"Failed to close connection: {str(e)}")
 
     def get_sensor_info(self):
         self.connect()
         try:
-            info = {
-                'Storage capacity': self.f.getStorageCapacity(),
-                'Security level': self.f.getSecurityLevel(),
-                'Template Count': self.f.getTemplateCount()
-                
-            }
+            info = f"Storage capacity: {self.f.getStorageCapacity()}\nSecurity level: {self.f.getSecurityLevel()}\nTemplate Count: {self.f.getTemplateCount()}"
             return info
         finally:
             self.close()
@@ -99,21 +95,44 @@ class FingerprintSensor:
         finally:
             self.close()
 
-# Example usage
-sensor = FingerprintSensor()
+def get_com_port():
+    ports = serial.tools.list_ports.comports()
+    for port in ports:
+        # Check for a specific manufacturer or description if known
+        if "USB" in port.description or "TTL" in port.description:
+            # print(port.device)
+            return port.device
+    print("No TTL converter found.")
+    return None
 
-# Get sensor info
-# info = sensor.get_sensor_info()
-# print(info)
+if __name__ == "__main__":
+        
+    PORT = get_com_port()
 
-# Enroll a finger
-# sensor.enroll_finger(positionNumber=1)
-
-# Search for a finger
-sensor.search_finger()
-
-# Delete a finger
-# sensor.delete_finger(positionNumber=1)
-
-# Get enrolled finger count
-# sensor.get_enrolled_finger_count()
+    if PORT != None:
+        if len(sys.argv) > 0:
+            sensor = FingerprintSensor(port=PORT)
+            
+            # Get sensor info
+            if sys.argv[1].lower() == "info":
+                info = sensor.get_sensor_info()
+                print(info)
+            elif sys.argv[1].lower() == "enroll":
+                # Enroll a finger
+                sensor.enroll_finger(positionNumber=1)
+            elif sys.argv[1].lower() == "search":
+                # Search for a finger
+                sensor.search_finger()
+            elif sys.argv[1].lower() == "delete":
+                # Delete a finger
+                sensor.delete_finger(positionNumber= int(sys.argv[2]))
+            elif sys.argv[1].lower() == "count":
+                # Get enrolled finger count
+                sensor.get_enrolled_finger_count()
+            elif sys.argv[1].lower() == "port":
+                PORT = get_com_port()
+                print(PORT)
+        else:
+            print("Enter the operation as argv")
+    else:
+        print("Finger Print Sensor not found...")
